@@ -3,7 +3,7 @@
 // Database connection
 $servername = "localhost";
 $username = "root";
-$password = "";
+$password = "12345678";
 $dbname = "chat";
 
 $conn = new mysqli($servername, $username, $password, $dbname);

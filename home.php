@@ -319,7 +319,7 @@ $(document).ready(function () {
         if (commentSection.is(":visible")) {
             console.log("Fetching comments for product ID:", productId); // Debugging
             $.ajax({
-                url: "fetch_comments.php",
+                url: "fetch_comment.php",
                 type: "POST",
                 data: { product_id: productId },
                 success: function (response) {
@@ -335,24 +335,42 @@ $(document).ready(function () {
 });
 
 
-    // Posting a new comment
-    $(".submit-comment").click(function () {
-        let productId = $(this).data("id");
-        let commentInput = $("#comment-input-" + productId);
-        let commentText = commentInput.val();
+$(".submit-comment").click(function () {
+    let productId = $(this).data("id");
+    let commentInput = $("#comment-input-" + productId);
+    let commentText = commentInput.val().trim();
 
-        if (commentText.trim() !== "") {
-            $.ajax({
-                url: "post_comment.php",
-                type: "POST",
-                data: { product_id: productId, comment: commentText },
-                success: function (response) {
-                    $("#comment-list-" + productId).append(response); // Append new comment
-                    commentInput.val(""); // Clear input field
-                }
-            });
+    if (commentText === "") {
+        alert("Please enter a comment.");
+        return;
+    }
+
+    // Show loading indicator
+    let submitButton = $(this);
+    submitButton.prop("disabled", true).text("Posting...");
+
+    $.ajax({
+        url: "post_comment.php",
+        type: "POST",
+        data: { product_id: productId, comment: commentText },
+        success: function (response) {
+            if (response.status === "success") {
+                // Append the new comment to the list
+                $("#comment-list-" + productId).append(response.html);
+                commentInput.val(""); // Clear input field
+            } else {
+                alert("Failed to post comment: " + response.message);
+            }
+        },
+        error: function (xhr, status, error) {
+            alert("An error occurred while posting the comment. Please try again.");
+        },
+        complete: function () {
+            // Restore button state
+            submitButton.prop("disabled", false).text("Post");
         }
     });
+});
 </script>
 
         </table>
@@ -439,27 +457,39 @@ $(document).ready(function() {
 $(document).ready(function() {
     let productId = 1; // Change this dynamically if needed
 
-    function fetchComments() {
-        $.ajax({
-            url: "fetch_comment.php",
-            type: "GET",
-            data: { product_id: productId },
-            success: function(response) {
-                try {
-                    let comments = JSON.parse(response);
+    // In your existing code, replace the fetchComments function with this:
+function fetchComments() {
+    $.ajax({
+        url: "fetch_comment.php",
+        type: "GET",
+        data: { product_id: productId },
+        success: function(response) {
+            try {
+                // Parse the response into a JSON object
+                let result = JSON.parse(response);
+
+                // Check if the server returned a success status
+                if (result.status === "success") {
+                    let comments = result.data; // Access the 'data' array
                     let html = '';
 
+                    // Iterate over comments
                     comments.forEach(commentData => {
                         html += `<div class='comment'>
-                            <strong>${commentData.username}</strong>: ${commentData.comment} <small>${commentData.created_at}</small>
+                            <strong>${commentData.username}</strong>: ${commentData.comment} 
+                            <small>${commentData.created_at}</small>
                             <button onclick="replyComment(${commentData.id})">Reply</button>
                             <div id="replies-${commentData.id}" class="replies">`;
 
-                        commentData.replies.forEach(reply => {
-                            html += `<div class='reply'>
-                                <strong>${reply.username}</strong>: ${reply.comment} <small>${reply.created_at}</small>
-                            </div>`;
-                        });
+                        // Add replies if they exist
+                        if (commentData.replies && commentData.replies.length > 0) {
+                            commentData.replies.forEach(reply => {
+                                html += `<div class='reply'>
+                                    <strong>${reply.username}</strong>: ${reply.comment} 
+                                    <small>${reply.created_at}</small>
+                                </div>`;
+                            });
+                        }
 
                         html += `</div>
                             <textarea id="reply-input-${commentData.id}" style="display:none;"></textarea>
@@ -467,16 +497,20 @@ $(document).ready(function() {
                         </div>`;
                     });
 
+                    // Update the comments container
                     $("#comments-container").html(html);
-                } catch (e) {
-                    console.error("Error parsing comments:", response, e);
+                } else {
+                    console.error("Server error:", result.message);
                 }
-            },
-            error: function(xhr, status, error) {
-                console.error("AJAX Error: " + error);
+            } catch (e) {
+                console.error("Error parsing response:", e);
             }
-        });
-    }
+        },
+        error: function(xhr, status, error) {
+            console.error("AJAX Error:", error);
+        }
+    });
+}
 
     fetchComments();
 });
